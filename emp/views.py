@@ -34,26 +34,6 @@ def admin_logout(request):
 
 
 
-# Dashboard View
-# def dashboard(request):
-#     if not request.user.is_authenticated:
-#         return redirect("admin_login")
-
-#     search_query = request.GET.get("search", "")
-#     if search_query:
-#         employees = Employee.objects.filter(
-#             Q(first_name__icontains=search_query) | 
-#             Q(last_name__icontains=search_query) | 
-#             Q(id__icontains=search_query)
-#         )
-#     else:
-#         employees = Employee.objects.all()
-
-#     return render(request, "dashboard.html", {"employees": employees})
-
-
-
-
 def dashboard(request):
     if not request.user.is_authenticated:
         return redirect("admin_login")
@@ -61,13 +41,19 @@ def dashboard(request):
     # Get today's date
     today = date.today()
 
-    # Filter present employees (checked in but not gone for lunch)
+    # Query employees matching either condition
     employees = Attendance.objects.filter(
-        date=today,
-        morning_check_in_time__isnull=False
+        Q(
+            morning_check_in_time__isnull=True,
+            lunch_check_in_time__isnull=False
+        ) |
+        Q(
+            morning_check_in_time__isnull=False
+        ),
+        date=today  # Ensure 'date' is placed after all positional arguments
     ).select_related('employee')
 
-    # If there's a search query, filter the present employees further
+    # If there's a search query, filter further
     search_query = request.GET.get("search", "")
     if search_query:
         employees = employees.filter(
@@ -76,6 +62,7 @@ def dashboard(request):
         )
 
     return render(request, "dashboard.html", {"attendance_records": employees})
+
 
 
 def all_employees(request):
@@ -134,7 +121,7 @@ def edit_employee(request, employee_id):
         employee.base_salary = request.POST.get("base_salary")
         employee.save()
         messages.success(request, "Employee details updated successfully.")
-        return redirect("dashboard")
+        return redirect("all_employees")
 
     return render(request, "edit_employee.html", {"employee": employee})
 
@@ -277,7 +264,9 @@ def record_attendance(request):
             messages.error(request, "Invalid QR code or employee not found.")
             return redirect("dashboard")  # Redirect to the dashboard with the error message
 
-        current_time = now()
+        current_time = datetime.now()
+        print("Current time is:", current_time)
+        print("Current date is:", current_time.date())
         attendance, _ = Attendance.objects.get_or_create(employee=employee, date=current_time.date())
 
         # Check if morning check-in is missing
@@ -314,35 +303,15 @@ def record_attendance(request):
     return render(request, "record_attendance.html")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Attendance Viewing View
 def view_employee_attendance(request, employee_id):
     if not request.user.is_authenticated:
         return redirect("admin_login")
     
     employee = get_object_or_404(Employee, id=employee_id)
-    attendance_records = Attendance.objects.filter(employee=employee).order_by('-date')
-    return render(request, 'view_employee_attendance.html', {'employee': employee, 'attendance_records': attendance_records})
+    return render(request, 'view_employee_attendance.html', {'employee': employee})
 
-# Calculate Salary
+
 def calculate_salary(request, employee_id):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
@@ -352,7 +321,6 @@ def calculate_salary(request, employee_id):
         data = json.loads(request.body)
         start_date = data.get('start_date')
         end_date = data.get('end_date')
-        
 
         # Ensure both dates are provided
         if not start_date or not end_date:
@@ -361,18 +329,21 @@ def calculate_salary(request, employee_id):
         # Convert strings to date objects
         start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-        # print(start_date, end_date)
+
         # Get the employee instance
         employee = get_object_or_404(Employee, id=employee_id)
 
         # Filter attendance records within the date range
-        valid_workdays = Attendance.objects.filter(
+        attendance_records = Attendance.objects.filter(
             employee=employee,
-            date__range=(start_date, end_date),
+            date__range=(start_date, end_date)
+        ).order_by('-date')
+
+        # Calculate valid workdays
+        valid_workdays = attendance_records.filter(
             morning_check_in_time__isnull=False,
             morning_check_out_time__isnull=False
         ).count()
-        # print(valid_workdays)
 
         # Calculate advance payments in the date range
         advances = AdvancePayment.objects.filter(
@@ -384,9 +355,22 @@ def calculate_salary(request, employee_id):
         # Calculate the total salary
         total_salary = (valid_workdays * employee.base_salary) - total_advance
 
-        # Return the result as JSON
+        # Optional: Delete advances after deduction (if required)
+        # advances.delete()
+
+        # Return attendance records and salary details
         return JsonResponse({
             'employee': f'{employee.first_name} {employee.last_name}',
+            'attendance_records': [
+                {
+                    'date': record.date.strftime('%Y-%m-%d'),
+                    'morning_check_in': record.morning_check_in_time.strftime('%H:%M:%S') if record.morning_check_in_time else "Not Checked In",
+                    'lunch_check_in': record.lunch_check_in_time.strftime('%H:%M:%S') if record.lunch_check_in_time else "Not Checked In",
+                    'lunch_check_out': record.lunch_check_out_time.strftime('%H:%M:%S') if record.lunch_check_out_time else "Not Checked Out",
+                    'evening_check_out': record.morning_check_out_time.strftime('%H:%M:%S') if record.morning_check_out_time else "Not Checked Out",
+                }
+                for record in attendance_records
+            ],
             'valid_workdays': valid_workdays,
             'total_salary': total_salary,
             'advance_paid': total_advance,
@@ -394,18 +378,45 @@ def calculate_salary(request, employee_id):
     else:
         return JsonResponse({'error': 'Invalid request method.'}, status=405)
 
+
+
+
+
 # Advance Payment View
+from django.conf import settings
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+import json
+from .models import Employee, AdvancePayment
+
 def advance_payment(request, employee_id):
+    # Check if the user is authenticated
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
+    # Handle POST request
     if request.method == "POST":
-        data = json.loads(request.body)
-        amount = data.get('amount', 0)
-        # print(type(amount))
-        if int(amount) > 0:
-            employee = get_object_or_404(Employee, id=employee_id)
-            AdvancePayment.objects.create(employee=employee, amount=amount)
-            return JsonResponse({'message': 'Advance payment recorded successfully.'})
-        return JsonResponse({'error': 'Invalid amount'}, status=400)
+        try:
+            data = json.loads(request.body)
+            amount = data.get('amount', 0)
+            password = data.get('password', '')
+
+            # Check if the provided password matches the special password
+            special_password = getattr(settings, 'SPECIAL_PASSWORD', None)
+            if not special_password or password != special_password:
+                return JsonResponse({'error': 'Invalid password'}, status=403)
+
+            # Validate the amount
+            if int(amount) > 0:
+                employee = get_object_or_404(Employee, id=employee_id)
+                AdvancePayment.objects.create(employee=employee, amount=amount)
+                return JsonResponse({'message': 'Advance payment recorded successfully.'})
+            else:
+                return JsonResponse({'error': 'Invalid amount'}, status=400)
+        except (ValueError, KeyError, json.JSONDecodeError):
+            return JsonResponse({'error': 'Invalid request data'}, status=400)
+
+    # If the request method is not POST, return a 405 error
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
 
