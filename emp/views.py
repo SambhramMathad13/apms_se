@@ -1,11 +1,10 @@
-from datetime import datetime, time, timedelta
+from datetime import datetime
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils.timezone import now
 from django.db.models import Sum
 from .models import Employee, Attendance, AdvancePayment
-from django.contrib.auth.models import User  # Import User model
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
 from django.db.models import Q
@@ -22,6 +21,7 @@ def admin_login(request):
         
         if user is not None and user.is_staff:  # Check if the user is authenticated and is an admin
             login(request, user)  # Log in the user
+            messages.success(request, "Successfully logged in.")
             return redirect("dashboard")
         else:
             messages.error(request, "Invalid username, password, or you don't have admin privileges.")
@@ -30,6 +30,7 @@ def admin_login(request):
 
 def admin_logout(request):
     logout(request)  # Log out the user
+    messages.success(request, "Successfully logged out.")
     return redirect("admin_login")
 
 
