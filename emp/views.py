@@ -2,14 +2,14 @@ from datetime import datetime
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
-from django.utils.timezone import now
 from django.db.models import Sum
 from .models import Employee, Attendance, AdvancePayment
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
 from django.db.models import Q
 from datetime import date
-
+from django.conf import settings
+SPECIAL_PASSWORD = "admin"
 # Authentication Views               add the auth code here also .....
 def admin_login(request):
     if request.method == "POST":
@@ -108,21 +108,46 @@ def add_employee(request):
     return render(request, "add_employee.html")
 
 
+# def edit_employee(request, employee_id):
+#     if not request.user.is_authenticated:
+#         return redirect("admin_login")
+
+#     employee = get_object_or_404(Employee, id=employee_id)
+#     if request.method == "POST":
+#         employee.first_name = request.POST.get("first_name")
+#         employee.last_name = request.POST.get("last_name")
+#         employee.address = request.POST.get("address")
+#         employee.gender = request.POST.get("gender")
+#         employee.mobile = request.POST.get("mobile")
+#         employee.base_salary = request.POST.get("base_salary")
+#         employee.save()
+#         messages.success(request, "Employee details updated successfully.")
+#         return redirect("all_employees")
+
+#     return render(request, "edit_employee.html", {"employee": employee})
+
 def edit_employee(request, employee_id):
     if not request.user.is_authenticated:
         return redirect("admin_login")
 
     employee = get_object_or_404(Employee, id=employee_id)
+
     if request.method == "POST":
-        employee.first_name = request.POST.get("first_name")
-        employee.last_name = request.POST.get("last_name")
-        employee.address = request.POST.get("address")
-        employee.gender = request.POST.get("gender")
-        employee.mobile = request.POST.get("mobile")
-        employee.base_salary = request.POST.get("base_salary")
-        employee.save()
-        messages.success(request, "Employee details updated successfully.")
-        return redirect("all_employees")
+        special_password = request.POST.get("special_password", "")
+        if special_password == SPECIAL_PASSWORD:
+            # Update employee details
+            employee.first_name = request.POST.get("first_name")
+            employee.last_name = request.POST.get("last_name")
+            employee.address = request.POST.get("address")
+            employee.gender = request.POST.get("gender")
+            employee.mobile = request.POST.get("mobile")
+            employee.base_salary = request.POST.get("base_salary")
+            employee.save()
+            messages.success(request, "Employee details updated successfully.")
+            return redirect("all_employees")
+        else:
+            messages.error(request, "Incorrect special password. Changes were not saved.")
+            return redirect("edit_employee", employee_id=employee_id)
 
     return render(request, "edit_employee.html", {"employee": employee})
 
@@ -131,10 +156,15 @@ def delete_employee(request, employee_id):
     if not request.user.is_authenticated:
         return redirect("admin_login")
 
-    employee = get_object_or_404(Employee, id=employee_id)
-    employee.delete()
-    messages.success(request, "Employee deleted successfully.")
-    return redirect("dashboard")
+    if request.method == "POST":
+        special_password = request.POST.get("special_password", "")
+        if special_password == SPECIAL_PASSWORD:
+            employee = get_object_or_404(Employee, id=employee_id)
+            employee.delete()
+            messages.success(request, "Employee deleted successfully.")
+        else:
+            messages.error(request, "Incorrect password. Employee not deleted.")
+        return redirect("all_employees")
 
 
 
@@ -384,12 +414,6 @@ def calculate_salary(request, employee_id):
 
 
 # Advance Payment View
-from django.conf import settings
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-import json
-from .models import Employee, AdvancePayment
-
 def advance_payment(request, employee_id):
     # Check if the user is authenticated
     if not request.user.is_authenticated:
