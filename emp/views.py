@@ -10,8 +10,14 @@ from django.db.models import Q
 from datetime import date
 from django.conf import settings
 SPECIAL_PASSWORD = "admin"
-# Authentication Views               add the auth code here also .....
+from django.core.paginator import Paginator
+from django.views.decorators.cache import cache_page
+
+
+# Authentication Views
 def admin_login(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
     if request.method == "POST":
         username = request.POST.get("username")  # Use username instead of email
         password = request.POST.get("password")
@@ -28,11 +34,11 @@ def admin_login(request):
     
     return render(request, "admin_login.html")
 
+
 def admin_logout(request):
     logout(request)  # Log out the user
     messages.success(request, "Successfully logged out.")
     return redirect("admin_login")
-
 
 
 def dashboard(request):
@@ -42,8 +48,11 @@ def dashboard(request):
     # Get today's date
     today = date.today()
 
-    # Query employees matching either condition
-    employees = Attendance.objects.filter(
+    # Get the current page number from the request
+    page_number = request.GET.get("page", 1)
+
+    # Paginate the queryset
+    paginator = Paginator(Attendance.objects.filter(
         Q(
             morning_check_in_time__isnull=True,
             lunch_check_in_time__isnull=False
@@ -51,23 +60,20 @@ def dashboard(request):
         Q(
             morning_check_in_time__isnull=False
         ),
-        date=today  # Ensure 'date' is placed after all positional arguments
-    ).select_related('employee')
+        date=today
+    ).select_related('employee').order_by('employee__id'),2)  # Show 2 records per page
+    attendance_records = paginator.get_page(page_number)
 
-    # If there's a search query, filter further
-    search_query = request.GET.get("search", "")
-    if search_query:
-        employees = employees.filter(
-            Q(employee__first_name__icontains=search_query) |
-            Q(employee__last_name__icontains=search_query)
-        )
-
-    return render(request, "dashboard.html", {"attendance_records": employees})
+    return render(request, "dashboard.html", {"attendance_records": attendance_records})
 
 
 
+
+# Cache the entire page for 15 minutes (900 seconds)
+@cache_page(60 * 2)
 def all_employees(request):
     search_query = request.GET.get('search', '')  # Get the search query from the request
+
     if search_query:
         employees = Employee.objects.filter(
             first_name__icontains=search_query
@@ -79,7 +85,12 @@ def all_employees(request):
     else:
         employees = Employee.objects.all()
 
-    return render(request, 'allemp.html', {'employees': employees})
+    # Implement Pagination
+    paginator = Paginator(employees, 7)  # Show 10 employees per page
+    page_number = request.GET.get('page')  # Get the page number from the request
+    page_obj = paginator.get_page(page_number)  # Get the page object for the current page
+
+    return render(request, 'allemp.html', {'page_obj': page_obj, 'search_query': search_query})
 
 # Employee Management Views
 def add_employee(request):
@@ -108,23 +119,6 @@ def add_employee(request):
     return render(request, "add_employee.html")
 
 
-# def edit_employee(request, employee_id):
-#     if not request.user.is_authenticated:
-#         return redirect("admin_login")
-
-#     employee = get_object_or_404(Employee, id=employee_id)
-#     if request.method == "POST":
-#         employee.first_name = request.POST.get("first_name")
-#         employee.last_name = request.POST.get("last_name")
-#         employee.address = request.POST.get("address")
-#         employee.gender = request.POST.get("gender")
-#         employee.mobile = request.POST.get("mobile")
-#         employee.base_salary = request.POST.get("base_salary")
-#         employee.save()
-#         messages.success(request, "Employee details updated successfully.")
-#         return redirect("all_employees")
-
-#     return render(request, "edit_employee.html", {"employee": employee})
 
 def edit_employee(request, employee_id):
     if not request.user.is_authenticated:
@@ -264,74 +258,48 @@ def delete_employee(request, employee_id):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def record_attendance(request):
+def scan_view(request):
     if not request.user.is_authenticated:
         return redirect("admin_login")
+    if request.method == 'POST':
+        employee_id = request.POST.get('employee_id')
+        if employee_id:
+            eid=employee_id[4:]
+            # Process the employee ID
+            print(f"Scanned Employee ID: {eid}")
+            try:
+                employee = get_object_or_404(Employee, id=eid)
+                current_time = datetime.now()
+                attendance, _ = Attendance.objects.get_or_create(employee=employee, date=current_time.date())
 
-    if request.method == "POST":
-        # Assume the QR code contains the employee_id
-        qr_code_data = request.POST.get("employee_id")  # Retrieved from the frontend via POST
-        if not qr_code_data:
+                # Check if morning check-in is missing
+                if not attendance.morning_check_in_time:
+                    attendance.morning_check_in_time = current_time
+                    attendance.save()
+                    messages.success(request, f"Attendance recorded successfully for Morning Check-in for {employee.first_name}.")
+                # Check if lunch check-in is missing
+                elif not attendance.lunch_check_in_time:
+                    attendance.lunch_check_in_time = current_time
+                    attendance.save()
+                    messages.success(request, f"Attendance recorded successfully for Lunch Check-in for {employee.first_name}.")
+                # Check if lunch check-out is missing
+                elif attendance.lunch_check_in_time and not attendance.lunch_check_out_time:
+                    attendance.lunch_check_out_time = current_time
+                    attendance.save()
+                    messages.success(request, f"Attendance recorded successfully for Lunch Check-out for {employee.first_name}.")
+                # Check if evening check-out is missing
+                elif not attendance.morning_check_out_time:
+                    attendance.morning_check_out_time = current_time
+                    attendance.save()
+                    messages.success(request, f"Attendance recorded successfully for Evening Check-out for {employee.first_name}.")
+                else:
+                    messages.warning(request, f"All attendance records for {employee.first_name} are already completed.")
+            except:
+                messages.error(request, "Invalid QR code or employee not found.")
+
+        else:
             messages.error(request, "No QR code data provided.")
-            return redirect("dashboard")  # Redirect to the dashboard with the error message
-
-        try:
-            employee = get_object_or_404(Employee, id=qr_code_data)
-        except:
-            messages.error(request, "Invalid QR code or employee not found.")
-            return redirect("dashboard")  # Redirect to the dashboard with the error message
-
-        current_time = datetime.now()
-        print("Current time is:", current_time)
-        print("Current date is:", current_time.date())
-        attendance, _ = Attendance.objects.get_or_create(employee=employee, date=current_time.date())
-
-        # Check if morning check-in is missing
-        if not attendance.morning_check_in_time:
-            attendance.morning_check_in_time = current_time
-            attendance.save()
-            messages.success(request, f"Attendance recorded successfully for Morning Check-in for {employee.first_name}.")
-            return redirect("dashboard")  # Redirect to the dashboard with the success message
-
-        # Check if lunch check-in is missing
-        elif not attendance.lunch_check_in_time:
-            attendance.lunch_check_in_time = current_time
-            attendance.save()
-            messages.success(request, f"Attendance recorded successfully for Lunch Check-in for {employee.first_name}.")
-            return redirect("dashboard")  # Redirect to the dashboard with the success message
-
-        # Check if lunch check-out is missing
-        elif attendance.lunch_check_in_time and not attendance.lunch_check_out_time:
-            attendance.lunch_check_out_time = current_time
-            attendance.save()
-            messages.success(request, f"Attendance recorded successfully for Lunch Check-out for {employee.first_name}.")
-            return redirect("dashboard")  # Redirect to the dashboard with the success message
-
-        # Check if evening check-out is missing
-        elif not attendance.morning_check_out_time:
-            attendance.morning_check_out_time = current_time
-            attendance.save()
-            messages.success(request, f"Attendance recorded successfully for Evening Check-out for {employee.first_name}.")
-            return redirect("dashboard")  # Redirect to the dashboard with the success message
-
-        messages.warning(request, f"All attendance records for {employee.first_name} are already completed.")
-        return redirect("dashboard")  # Redirect to the dashboard with the warning message
-
-    return render(request, "record_attendance.html")
+    return render(request, 'scan.html')
 
 
 # Attendance Viewing View

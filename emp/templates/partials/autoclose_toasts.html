@@ -1,0 +1,21 @@
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    {% for message in messages %}
+    <div class="toast show align-items-center {% if 'error' in message.tags %}text-bg-danger{% else %}text-bg-{{ message.tags }}{% endif %} border-0" role="alert" aria-live="assertive" aria-atomic="true" style="width: 350px; font-size: 1.2rem; padding: 0.5rem;" data-bs-delay="3000">
+        <div class="d-flex">
+            <div class="toast-body" style="font-weight: 500;">
+                {{ message }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    // Automatically hide the toast after 3 seconds (3000ms)
+    document.querySelectorAll('.toast').forEach((toast) => {
+        setTimeout(() => {
+            let bootstrapToast = new bootstrap.Toast(toast);
+            bootstrapToast.hide();
+        }, 4000); // 4 seconds delay
+    });
+</script>

@@ -1,6 +1,6 @@
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
     {% for message in messages %}
-    <div class="toast show align-items-center text-bg-{{ message.tags }} border-0" role="alert" aria-live="assertive" aria-atomic="true" style="width: 350px; font-size: 1.2rem; padding: 0.5rem;">
+    <div class="toast show align-items-center {% if 'error' in message.tags %}text-bg-danger{% else %}text-bg-{{ message.tags }}{% endif %} border-0" role="alert" aria-live="assertive" aria-atomic="true" style="width: 350px; font-size: 1.2rem; padding: 0.5rem;">
         <div class="d-flex">
             <div class="toast-body" style="font-weight: 500;">
                 {{ message }}

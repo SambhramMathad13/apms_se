@@ -6,6 +6,11 @@ urlpatterns = [
     path('', views.admin_login, name='admin_login'),
     path('logout/', views.admin_logout, name='admin_logout'),
 
+
+
+
+
+
     # Dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
 
@@ -16,7 +21,7 @@ urlpatterns = [
     path('delete/<int:employee_id>/', views.delete_employee, name='delete_employee'),
 
     # Attendance
-    path('record/', views.record_attendance, name='record_attendance'),
+    path('scan/', views.scan_view, name='scan'),
     path('view/<int:employee_id>/', views.view_employee_attendance, name='view_employee_attendance'),
 
     # Salary

@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-74q77&l1+=hv_uaj5(!(v7ow2hgb#+%pgy-hdiw$7y)-&j_jd!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.1.26']
+
 
 
 # Application definition
@@ -82,6 +83,8 @@ DATABASES = {
 }
 
 
+
+
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
@@ -116,13 +119,14 @@ SPECIAL_PASSWORD = 'admin'
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
+
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)

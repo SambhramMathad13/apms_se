@@ -69,7 +69,7 @@
 
         @media (max-width: 769px) {
             .side-nav {
-                height: 48vh;
+                height: 50vh;
                 background-color: #fff;
                 border-right: 1px solid #ddd;
                 padding-top: 20px;
@@ -90,12 +90,12 @@
                 </div>
 
                 <!-- Dashboard Title -->
-                <h4 class="text-center mb-5">APS</h4>
+                <h4 class="text-center mb-5">APMS</h4>
 
                 <!-- Sidebar Links -->
-                <a  class="btn gradient-custom-2 w-100 my-2">Dashboard</a>
+                <a class="btn gradient-custom-2 w-100 my-2">Dashboard</a>
                 <a href="{% url 'add_employee' %}" class="btn btn-light w-100 my-2">Add Employee</a>
-                <a href="{% url 'record_attendance' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
+                <a href="{% url 'scan' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
                 <a href="{% url 'all_employees' %}" class="btn btn-light w-100 my-2">View All Employees</a>
                 <a href="{% url 'admin_logout' %}" class="btn btn-light w-100 my-2">Logout</a>
             </div>
@@ -134,22 +134,22 @@
                                 <td>{{ record.employee.id }}</td>
                                 <td>{{ record.employee }}</td>
                                 <td>
-                                    <span>{{ record.morning_check_in_time }}</span>
+                                    <span>{{ record.morning_check_in_time|date:"P" }}</span>
                                     <span
                                         class="status-box {% if record.morning_check_in_time is not None %}status-green{% else %}status-red{% endif %}"></span>
                                 </td>
                                 <td>
-                                    <span>{{ record.lunch_check_in_time }}</span>
+                                    <span>{{ record.lunch_check_in_time|date:"P" }}</span>
                                     <span
                                         class="status-box {% if record.lunch_check_in_time is not None %}status-green{% else %}status-red{% endif %}"></span>
                                 </td>
                                 <td>
-                                    <span>{{ record.lunch_check_out_time }}</span>
+                                    <span>{{ record.lunch_check_out_time|date:"P" }}</span>
                                     <span
                                         class="status-box {% if record.lunch_check_out_time is not None %}status-green{% else %}status-red{% endif %}"></span>
                                 </td>
                                 <td>
-                                    <span>{{ record.morning_check_out_time }}</span>
+                                    <span>{{ record.morning_check_out_time|date:"P" }}</span>
                                     <span
                                         class="status-box {% if record.morning_check_out_time is not None %}status-green{% else %}status-red{% endif %}"></span>
                                 </td>
@@ -161,7 +161,31 @@
                             </tr>
                             {% endif %}
                         </tbody>
+                        
                     </table>
+
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if attendance_records.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link text-black" href="?page={{ attendance_records.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+                            </li>
+                            {% endif %}
+                    
+                            {% for num in attendance_records.paginator.page_range %}
+                            <li class="page-item">
+                                <a class="page-link text-black {% if attendance_records.number == num %} gradient-custom-2 {% endif %}" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                            </li>
+                            {% endfor %}
+                    
+                            {% if attendance_records.has_next %}
+                            <li class="page-item">
+                                <a class="page-link text-black" href="?page={{ attendance_records.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+
                 </div>
             </div>
         </div>
