@@ -5,7 +5,7 @@ from .models import Employee, Attendance, AdvancePayment
 # Register Employee model
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'gender', 'mobile', 'base_salary', 'qr_code')
+    list_display = ('first_name', 'last_name','section','gender', 'mobile','address', 'base_salary', 'qr_code')
     search_fields = ('first_name', 'last_name', 'mobile')
     list_filter = ('gender',)
     ordering = ('first_name',)

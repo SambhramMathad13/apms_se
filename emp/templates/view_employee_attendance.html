@@ -92,7 +92,9 @@
                 <div class="card-body">
                     <h4 class="text-center">{{ employee.first_name }} {{ employee.last_name }}</h4>
                     <p><strong>Employee ID:</strong> {{ employee.id }}</p>
+                    <p><strong>Employee Section:</strong> {{ employee.section }}</p>
                     <p><strong>Mobile:</strong> {{ employee.mobile }}</p>
+                    <p><strong>Address:</strong> {{ employee.address }}</p>
                     <p><strong>Base Salary:</strong> ₹{{ employee.base_salary }}</p>
 
                     <!-- Start and End Date Input -->
@@ -162,6 +164,10 @@
                         <div class="mb-3">
                             <label for="advanceAmount" class="form-label">Enter Advance Amount</label>
                             <input type="number" class="form-control" id="advanceAmount" name="amount" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmamt" class="form-label">Confirm Advance Amount</label>
+                            <input type="number" class="form-control" id="confirmamt" name="camount" required>
                         </div>
                         <div class="mb-3">
                             <label for="advancePassword" class="form-label">Enter Special Password</label>
@@ -260,9 +266,10 @@
 
         function submitAdvance() {
             const amount = document.getElementById('advanceAmount').value;
+            const camount = document.getElementById('confirmamt').value;
             const password = document.getElementById('advancePassword').value;
 
-            if (amount && password) {
+            if (amount && password && camount==amount) {
                 fetch(`{% url 'advance_payment' employee.id %}`, {
                     method: 'POST',
                     headers: {
@@ -283,7 +290,7 @@
                         showToast('An error occurred while submitting the advance.', 'danger');
                     });
             } else {
-                showToast('Please fill out all fields.', 'warning');
+                showToast('Please fill out all fields or amount mismatch.', 'warning');
             }
         }
     </script>

@@ -79,8 +79,8 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Name</th>
-                                    <th>Mobile</th>
-                                    <th>Base Salary</th>
+                                    <th>Section</th>
+                                    <th>Gender</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -90,8 +90,8 @@
                                 <tr>
                                     <td>{{ employee.id }}</td>
                                     <td>{{ employee.first_name }} {{ employee.last_name }}</td>
-                                    <td>{{ employee.mobile }}</td>
-                                    <td>{{ employee.base_salary }}</td>
+                                    <td>{{ employee.section }}</td>
+                                    <td>{{ employee.gender }}</td>
                                     <td>
                                         <a href="{% url 'view_employee_attendance' employee.id %}"
                                             class="btn btn-primary btn-sm">View</a>

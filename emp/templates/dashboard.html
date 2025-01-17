@@ -93,10 +93,20 @@
                 <h4 class="text-center mb-5">APMS</h4>
 
                 <!-- Sidebar Links -->
+                <!-- <a class="btn gradient-custom-2 w-100 my-2">Dashboard</a>
+                <a href="{% url 'add_employee' %}" class="btn btn-light w-100 my-2">Add Employee</a>
+                <a href="{% url 'scan' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
+                <a href="{% url 'all_employees' %}" class="btn btn-light w-100 my-2">View All Employees</a>
+                <a href="{% url 'admin_logout' %}" class="btn btn-light w-100 my-2">Logout</a> -->
+                {% if user.is_superuser %}
                 <a class="btn gradient-custom-2 w-100 my-2">Dashboard</a>
                 <a href="{% url 'add_employee' %}" class="btn btn-light w-100 my-2">Add Employee</a>
                 <a href="{% url 'scan' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
                 <a href="{% url 'all_employees' %}" class="btn btn-light w-100 my-2">View All Employees</a>
+                {% else %}
+                <a class="btn gradient-custom-2 w-100 my-2">Dashboard</a>
+                <a href="{% url 'scan' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
+                {% endif %}
                 <a href="{% url 'admin_logout' %}" class="btn btn-light w-100 my-2">Logout</a>
             </div>
 
