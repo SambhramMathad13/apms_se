@@ -1,6 +1,9 @@
 from django.urls import path
-from . import views
 
+
+from . import views
+from django.conf.urls.static import static
+from django.conf import settings
 urlpatterns = [
     # Authentication Routes
     path('', views.admin_login, name='admin_login'),
@@ -30,3 +33,6 @@ urlpatterns = [
     # Advance Payment
     path('payment/<int:employee_id>/', views.advance_payment, name='advance_payment'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
