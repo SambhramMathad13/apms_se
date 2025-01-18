@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time, timedelta
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
@@ -11,7 +11,6 @@ from datetime import date
 from django.conf import settings
 SPECIAL_PASSWORD = "admin"
 from django.core.paginator import Paginator
-from django.views.decorators.cache import cache_page
 
 
 # Authentication Views
@@ -62,12 +61,13 @@ def dashboard(request):
         ),
         date=today
     ).select_related('employee').order_by('employee__id')
-
+    total_employees = Employee.objects.count()
+    employees_in_office=attendance.count()
     # Filter attendance records based on the search query
     if search_query:
         attendance = attendance.filter(
             Q(employee__first_name__icontains=search_query) |
-            Q(employee__last_name__icontains=search_query)
+            Q(employee__id__icontains=search_query)
         )
 
     # Paginate the queryset
@@ -75,26 +75,23 @@ def dashboard(request):
     paginator = Paginator(attendance, 10)  # Show 10 records per page
     attendance_records = paginator.get_page(page_number)
 
-    return render(request, "dashboard.html", {"attendance_records": attendance_records, "search_query": search_query})
+    return render(request, "dashboard.html", {"attendance_records": attendance_records, "search_query": search_query,            "total_employees": total_employees,
+            "employees_in_office": employees_in_office,})
 
 
 
 # Cache the entire page for 15 minutes (900 seconds)
-@cache_page(60*1)
+
 def all_employees(request):
     if request.user.is_authenticated and request.user.is_superuser:
         search_query = request.GET.get('search', '')  # Get the search query from the request
 
         if search_query:
             employees = Employee.objects.filter(
-                first_name__icontains=search_query
-            ) | Employee.objects.filter(
-                last_name__icontains=search_query
-            ) | Employee.objects.filter(
-                id__icontains=search_query
+                Q(first_name__icontains=search_query) | Q(id__icontains=search_query)
             )
         else:
-            employees = Employee.objects.all()
+            employees = Employee.objects.all().order_by('id')
 
         # Implement Pagination
         paginator = Paginator(employees, 8)  # Show 8 employees per page
@@ -178,103 +175,6 @@ def delete_employee(request, employee_id):
         return redirect("admin_login")    
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# def record_attendance(request):
-#     if not request.user.is_authenticated:
-#         return redirect("admin_login")
-
-#     if request.method == "POST":
-#         employee_id = request.POST.get("employee_id")
-#         if not employee_id:
-#             messages.error(request, "No QR code data provided.")
-#             return redirect("dashboard")
-
-#         try:
-#             employee = get_object_or_404(Employee, id=employee_id)
-#         except:
-#             messages.error(request, "Invalid QR code or employee not found.")
-#             return redirect("dashboard")
-
-#         current_time = now()
-#         attendance, _ = Attendance.objects.get_or_create(employee=employee, date=current_time.date())
-
-#         # Helper function to check if time is in range
-#         def time_in_range(start, end, check):
-#             return start <= check <= end
-
-#         current_time_only = current_time.time()
-
-#         # Morning Check-in
-#         if time_in_range(time(6, 0), time(10, 59), current_time_only):
-#             if not attendance.morning_check_in_time:
-#                 attendance.morning_check_in_time = current_time
-#                 attendance.save()
-#                 messages.success(request, f"Morning check-in recorded successfully for {employee.first_name}.")
-#             else:
-#                 messages.error(request, f"Morning check-in already recorded for {employee.first_name}.")
-#             return redirect("dashboard")
-
-#         # Late Check-in
-#         elif time_in_range(time(11, 0), time(12, 29), current_time_only):
-#             messages.warning(request, f"Late check-in for {employee.first_name}. Please confirm with admin.")
-#             return redirect("dashboard")
-
-#         # Lunch Check-in and Check-out
-#         elif time_in_range(time(12, 30), time(17, 0), current_time_only):
-#             if not attendance.morning_check_in_time:
-#                 messages.error(request, f"Morning check-in missing for {employee.first_name}. Recording lunch-in instead.")
-#             elif not attendance.lunch_check_in_time:
-#                 attendance.lunch_check_in_time = current_time
-#                 attendance.save()
-#                 messages.success(request, f"Lunch check-in recorded successfully for {employee.first_name}.")
-#             elif attendance.lunch_check_in_time and not attendance.lunch_check_out_time:
-#                 lunch_duration = current_time - attendance.lunch_check_in_time
-#                 if lunch_duration > timedelta(hours=1):
-#                     messages.warning(request, f"Employee {employee.first_name} is late from lunch. Please confirm with admin.")
-#                 else:
-#                     attendance.lunch_check_out_time = current_time
-#                     attendance.save()
-#                     messages.success(request, f"Lunch check-out recorded successfully for {employee.first_name}.")
-#             else:
-#                 messages.error(request, f"Lunch check-in and check-out already recorded for {employee.first_name}.")
-#             return redirect("dashboard")
-
-#         # Evening Check-out
-#         elif time_in_range(time(17, 1), time(22, 0), current_time_only):
-#             if attendance.morning_check_in_time and not attendance.evening_check_out_time:
-#                 attendance.evening_check_out_time = current_time
-#                 attendance.save()
-#                 messages.success(request, f"Evening check-out recorded successfully for {employee.first_name}.")
-#             elif not attendance.morning_check_in_time:
-#                 messages.warning(request, f"Employee {employee.first_name} is too late to check in. Please confirm with admin.")
-#             else:
-#                 messages.error(request, f"Evening check-out already recorded for {employee.first_name}.")
-#             return redirect("dashboard")
-
-#         # Invalid Check-in/out Time
-#         else:
-#             messages.error(request, f"Invalid check-in/out time for {employee.first_name}.")
-#             return redirect("dashboard")
-
-#     return render(request, "record_attendance.html")
-
-
-
-
 def scan_view(request):
     if not request.user.is_authenticated:
         return redirect("admin_login")
@@ -282,38 +182,74 @@ def scan_view(request):
         employee_id = request.POST.get('employee_id')
         if employee_id:
             eid=employee_id[4:]
-            # # Process the employee ID
-            # print(f"Scanned Employee ID: {eid}")
             try:
                 employee = get_object_or_404(Employee, id=eid)
-                current_time = datetime.now()
-                attendance, _ = Attendance.objects.get_or_create(employee=employee, date=current_time.date())
+            except:
+                messages.error(request, "Invalid QR code or employee not found.")
+                return render(request, 'scan.html')
+            current_time = datetime.now()
+            attendance, _ = Attendance.objects.get_or_create(employee=employee, date=current_time.date())
 
-                # Check if morning check-in is missing
+            def time_in_range(start, end, check):
+                return start <= check <= end
+
+            current_time_only = current_time.time()
+            # print(current_time_only)
+
+
+            # Morning Check-in
+            if time_in_range(time(6, 0), time(10, 59), current_time_only):
                 if not attendance.morning_check_in_time:
                     attendance.morning_check_in_time = current_time
                     attendance.save()
-                    messages.success(request, f"Attendance recorded successfully for Morning Check-in for {employee.first_name}.")
-                # Check if lunch check-in is missing
+                    messages.success(request, f"Morning check-in recorded successfully for {employee.first_name}.")
+                else:
+                    messages.error(request, f"Morning check-in already recorded for {employee.first_name}.")
+
+            # Late Check-in
+            elif time_in_range(time(11, 0), time(12, 29), current_time_only):
+                attendance.morning_check_in_time = current_time
+                attendance.save()
+                messages.warning(request, f"Late check-in for {employee.first_name}. Please confirm with admin.")
+
+            # Lunch Check-in and Check-out
+            elif time_in_range(time(12, 30), time(18, 0), current_time_only):
+                if not attendance.morning_check_in_time and not attendance.lunch_check_in_time:
+                    attendance.lunch_check_in_time = current_time
+                    attendance.save()
+                    messages.error(request, f"Morning check-in missing for {employee.first_name}. Recording lunch-in instead.")
                 elif not attendance.lunch_check_in_time:
                     attendance.lunch_check_in_time = current_time
                     attendance.save()
-                    messages.success(request, f"Attendance recorded successfully for Lunch Check-in for {employee.first_name}.")
-                # Check if lunch check-out is missing
+                    messages.success(request, f"Lunch check-in recorded successfully for {employee.first_name}.")
                 elif attendance.lunch_check_in_time and not attendance.lunch_check_out_time:
-                    attendance.lunch_check_out_time = current_time
-                    attendance.save()
-                    messages.success(request, f"Attendance recorded successfully for Lunch Check-out for {employee.first_name}.")
-                # Check if evening check-out is missing
-                elif not attendance.morning_check_out_time:
+                    lunch_duration = current_time - attendance.lunch_check_in_time
+                    if lunch_duration > timedelta(hours=1):
+                        attendance.lunch_check_out_time = current_time
+                        attendance.save()
+                        messages.warning(request, f"Employee {employee.first_name} is late from lunch. Please confirm with admin.")
+                    else:
+                        attendance.lunch_check_out_time = current_time
+                        attendance.save()
+                        messages.success(request, f"Lunch check-out recorded successfully for {employee.first_name}.")
+                else:
+                    messages.error(request, f"Lunch check-in and check-out already recorded for {employee.first_name}.")
+
+            # Evening Check-out
+            elif time_in_range(time(18, 1), time(22, 0), current_time_only):
+                if attendance.morning_check_in_time and not attendance.morning_check_out_time:
                     attendance.morning_check_out_time = current_time
                     attendance.save()
-                    messages.success(request, f"Attendance recorded successfully for Evening Check-out for {employee.first_name}.")
+                    messages.success(request, f"Evening check-out recorded successfully for {employee.first_name}.")
+                elif not attendance.morning_check_in_time:
+                    messages.warning(request, f"Employee {employee.first_name} is too late to check in. Please confirm with admin.")
                 else:
-                    messages.warning(request, f"All attendance records for {employee.first_name} are already completed.")
-            except:
-                messages.error(request, "Invalid QR code or employee not found.")
+                    messages.error(request, f"Evening check-out already recorded for {employee.first_name}.")
+                return redirect("dashboard")
 
+            # Invalid Check-in/out Time
+            else:
+                messages.error(request, f"Invalid check-in/out time for {employee.first_name}.")
         else:
             messages.error(request, "No QR code data provided.")
     return render(request, 'scan.html')
@@ -360,17 +296,27 @@ def calculate_salary(request, employee_id):
                 morning_check_out_time__isnull=False
             ).count()
 
-            # Calculate advance payments in the date range
+            # Filter advance payments
             advances = AdvancePayment.objects.filter(
                 employee=employee,
-                date__range=(start_date, end_date)
+                date__range=(start_date, end_date),
+                is_paid=False
             )
             total_advance = advances.aggregate(Sum('amount'))['amount__sum'] or 0
 
-            # Calculate the total salary
-            total_salary = (valid_workdays * (employee.base_salary//30)) - total_advance
+            # Prepare advance payment details
+            advance_details = [
+                {
+                    'id': advance.id,
+                    'date': advance.date.strftime('%Y-%m-%d'),
+                    'amount': advance.amount,
+                } for advance in advances
+            ]
 
-            # Return attendance records and salary details
+            # Calculate the total salary
+            total_salary = (valid_workdays * (employee.base_salary // 30)) - total_advance
+
+            # Return attendance records, advance details, and salary
             return JsonResponse({
                 'employee': f'{employee.first_name} {employee.last_name}',
                 'attendance_records': [
@@ -386,14 +332,12 @@ def calculate_salary(request, employee_id):
                 'valid_workdays': valid_workdays,
                 'total_salary': total_salary,
                 'advance_paid': total_advance,
+                'advances': advance_details,
             })
         else:
             return JsonResponse({'error': 'Invalid request method.'}, status=405)
     else:
         return redirect("admin_login")    
-
-
-
 
 
 # Advance Payment View
@@ -427,5 +371,44 @@ def advance_payment(request, employee_id):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     else:
         return redirect("admin_login")
+
+
+def update_advance(request):
+    if request.user.is_authenticated and request.user.is_superuser:
+        if request.method == 'POST':
+            try:
+                # Parse the JSON data from the request
+                data = json.loads(request.body)
+                advance_id = data.get('advanceId')
+                new_amount = data.get('newAmount')
+                new_date = data.get('newDate')
+                mark_paid = data.get('markPaid')
+                special_password = data.get('specialPassword')
+
+                # Validate the special password
+                specialpassword = getattr(settings, 'SPECIAL_PASSWORD', None)
+                if not specialpassword or special_password != specialpassword:
+                    return JsonResponse({'error': 'Invalid password'}, status=403)
+
+                try:
+                    advance = AdvancePayment.objects.get(id=advance_id)
+                except AdvancePayment.DoesNotExist:
+                    return JsonResponse({'success': False, 'message': 'Advance not found.'}, status=404)
+
+                # Update the advance record
+                advance.amount = new_amount
+                advance.date = new_date
+                advance.is_paid = mark_paid
+                advance.save()
+
+                return JsonResponse({'success': True, 'message': 'Advance updated successfully.'})
+            except json.JSONDecodeError:
+                return JsonResponse({'success': False, 'message': 'Invalid JSON data.'}, status=400)
+            except Exception as e:
+                return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'}, status=500)
+        else:
+            return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)
+    else:
+        return redirect("admin_login") 
 
 

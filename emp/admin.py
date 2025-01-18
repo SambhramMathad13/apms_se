@@ -22,7 +22,7 @@ class AttendanceAdmin(admin.ModelAdmin):
 # Register AdvancePayment model
 @admin.register(AdvancePayment)
 class AdvancePaymentAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'amount', 'date')
+    list_display = ('employee', 'amount', 'date','is_paid')
     search_fields = ('employee__first_name', 'employee__last_name')
     list_filter = ('date',)
     ordering = ('-date',)

@@ -81,69 +81,93 @@
                 <a href="{% url 'admin_logout' %}" class="btn btn-light w-100 my-2">Logout</a>
             </div>
 
-<!-- Main Content -->
-<div class="col-md-9 col-lg-10" style="background-color: #303030;">
-    <div class="container mt-2">
-        <div class="rounded-2 p-1">
-            <div class="card bg-light rounded shadow-sm">
-                <div class="card-header gradient-custom-2 text-white">
-                    <h2 class="text-center mb-0">Payment Advance Details</h2>
-                </div>
-                <div class="card-body">
-                    <h4 class="text-center">{{ employee.first_name }} {{ employee.last_name }}</h4>
-                    <p><strong>Employee ID:</strong> {{ employee.id }}</p>
-                    <p><strong>Employee Section:</strong> {{ employee.section }}</p>
-                    <p><strong>Mobile:</strong> {{ employee.mobile }}</p>
-                    <p><strong>Address:</strong> {{ employee.address }}</p>
-                    <p><strong>Base Salary:</strong> ₹{{ employee.base_salary }}</p>
-
-                    <!-- Start and End Date Input -->
-                    <form method="POST" id="salaryForm" class="mt-3 p-3 bg-white rounded">
-                        {% csrf_token %}
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="start_date" class="form-label">Start Date:</label>
-                                <input type="date" id="start_date" name="start_date" class="form-control" required>
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10" style="background-color: #303030;">
+                <div class="container mt-2">
+                    <div class="rounded-2 p-1">
+                        <div class="card bg-light rounded shadow-sm">
+                            <div class="card-header gradient-custom-2 text-white">
+                                <h2 class="text-center mb-0">Payment Advance Details</h2>
                             </div>
-                            <div class="col-md-6">
-                                <label for="end_date" class="form-label">End Date:</label>
-                                <input type="date" id="end_date" name="end_date" class="form-control" required>
+                            <div class="card-body">
+                                <h4 class="text-center">{{ employee.first_name }} {{ employee.last_name }}</h4>
+                                <p><strong>Employee ID:</strong> {{ employee.id }}</p>
+                                <p><strong>Employee Section:</strong> {{ employee.section }}</p>
+                                <p><strong>Mobile:</strong> {{ employee.mobile }}</p>
+                                <p><strong>Address:</strong> {{ employee.address }}</p>
+                                <p><strong>Base Salary:</strong> ₹{{ employee.base_salary }}</p>
+
+                                <!-- Start and End Date Input -->
+                                <form method="POST" id="salaryForm" class="p-3 bg-white rounded">
+                                    {% csrf_token %}
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="start_date" class="form-label">Start Date:</label>
+                                            <input type="date" id="start_date" name="start_date" class="form-control"
+                                                required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="end_date" class="form-label">End Date:</label>
+                                            <input type="date" id="end_date" name="end_date" class="form-control"
+                                                required>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <button type="button" class="btn gradient-custom-2 text-white"
+                                            onclick="calculateSalary()">Calculate Salary</button>
+                                        <button type="button" class="btn btn-secondary" onclick="giveAdvance()">Give
+                                            Advance</button>
+                                    </div>
+                                </form>
+
+                                <div class="mt-4 card bg-light p-3" id="result" style="display:none;">
+                                    <h4 class="card-title text-center">Salary Calculation Result</h4>
+                                    <p><strong>Valid Workdays:</strong> <span id="validWorkdays"></span></p>
+                                    <p><strong>Total Salary:</strong> ₹<span id="totalSalary"></span></p>
+                                    <p><strong>Advance Paid:</strong> ₹<span id="advancePaid"></span></p>
+
+
+                                    <div class="mt-2">
+                                        <h3 class="text-center text-dark">Advance Payments</h3>
+                                        <table class="table table-striped mt-4 bg-light">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Amount</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="advanceTableBody">
+                                                <!-- Advance records will be dynamically added here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+
+
+                                </div>
                             </div>
                         </div>
-                        <div class="d-flex justify-content-between">
-                            <button type="button" class="btn gradient-custom-2 text-white" onclick="calculateSalary()">Calculate Salary</button>
-                            <button type="button" class="btn btn-secondary" onclick="giveAdvance()">Give Advance</button>
-                        </div>
-                    </form>
 
-                    <div class="mt-4 card bg-light p-3" id="result" style="display:none;">
-                        <h5 class="card-title">Salary Calculation Result</h5>
-                        <p><strong>Valid Workdays:</strong> <span id="validWorkdays"></span></p>
-                        <p><strong>Total Salary:</strong> ₹<span id="totalSalary"></span></p>
-                        <p><strong>Advance Paid:</strong> ₹<span id="advancePaid"></span></p>
+                        <div class="mt-5">
+                            <table class="table mt-4">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Morning Check-In</th>
+                                        <th>Lunch Check-In</th>
+                                        <th>Lunch Check-Out</th>
+                                        <th>Evening Check-Out</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendanceTableBody">
+                                    <!-- Attendance records will be dynamically added here -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <div class="mt-5">
-                <table class="table mt-4">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Date</th>
-                            <th>Morning Check-In</th>
-                            <th>Lunch Check-In</th>
-                            <th>Lunch Check-Out</th>
-                            <th>Evening Check-Out</th>
-                        </tr>
-                    </thead>
-                    <tbody id="attendanceTableBody">
-                        <!-- Attendance records will be dynamically added here -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
 
         </div>
     </div>
@@ -179,6 +203,50 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn gradient-custom-2" onclick="submitAdvance()">Submit</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Edit Advance Modal -->
+    <div class="modal fade" id="editAdvanceModal" tabindex="-1" aria-labelledby="editAdvanceModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header gradient-custom-2">
+                    <h5 class="modal-title" id="editAdvanceModalLabel">Edit Advance</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editAdvanceForm">
+                    <div class="modal-body">
+                        <!-- New Amount -->
+                        <div class="mb-3">
+                            <label for="newAmount" class="form-label">New Amount</label>
+                            <input type="number" class="form-control" id="newAmount" name="newAmount" required>
+                        </div>
+                        <!-- New Date -->
+                        <div class="mb-3">
+                            <label for="newDate" class="form-label">New Date</label>
+                            <input type="date" class="form-control" id="newDate" name="newDate" required>
+                        </div>
+                        <!-- Mark Paid -->
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="markPaid" name="markPaid">
+                            <label class="form-check-label" for="markPaid">Mark as Paid</label>
+                        </div>
+                        <!-- Special Password -->
+                        <div class="mb-3">
+                            <label for="specialPassword" class="form-label">Special Password</label>
+                            <input type="password" class="form-control" id="specialPassword" name="specialPassword"
+                                required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn gradient-custom-2">Submit</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -227,6 +295,42 @@
                         document.getElementById('totalSalary').innerText = data.total_salary;
                         document.getElementById('advancePaid').innerText = data.advance_paid;
 
+
+                        const attendanceTableBody = document.getElementById('attendanceTableBody');
+                        attendanceTableBody.innerHTML = '';
+                        data.attendance_records.forEach(record => {
+                            const row = `
+                            <tr>
+                                <td>${record.date}</td>
+                                <td>${record.morning_check_in}</td>
+                                <td>${record.lunch_check_in}</td>
+                                <td>${record.lunch_check_out}</td>
+                                <td>${record.evening_check_out}</td>
+                            </tr>
+                        `;
+                            attendanceTableBody.insertAdjacentHTML('beforeend', row);
+                        });
+
+                        // Populate the advance table
+                        const advanceTableBody = document.getElementById('advanceTableBody');
+                        advanceTableBody.innerHTML = '';
+                        data.advances.forEach(advance => {
+                            const row = `
+<tr> 
+    <td>${advance.date}</td>
+    <td>₹${advance.amount}</td>
+    <td>
+        <button class="btn btn-sm btn-warning" 
+                onclick="editAdvance(${advance.id}, '${advance.date}', ${advance.amount})">
+            Edit
+        </button>
+    </td>
+</tr>
+                        `;
+                            advanceTableBody.insertAdjacentHTML('beforeend', row);
+                        });
+
+
                         const tableBody = document.getElementById('attendanceTableBody');
                         tableBody.innerHTML = '';
                         data.attendance_records.forEach(record => {
@@ -259,6 +363,53 @@
             }
         }
 
+
+        // Function to handle editing advance
+        function editAdvance(id, date, amount) {
+            // Populate modal with data if needed (e.g., pre-fill with existing data)
+            // console.log('Edit advance with ID:', id);
+            document.querySelector('#editAdvanceForm').dataset.advanceId = id;
+            document.getElementById('newAmount').value = amount;
+            document.getElementById('newDate').value = date;
+            // Show the modal
+            const editAdvanceModal = new bootstrap.Modal(document.getElementById('editAdvanceModal'));
+            editAdvanceModal.show();
+        }
+
+        // Handle form submission
+        document.getElementById('editAdvanceForm').addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const advanceId = this.dataset.advanceId; // Retrieve the ID of the advance being edited
+            const newAmount = document.getElementById('newAmount').value;
+            const newDate = document.getElementById('newDate').value;
+            const markPaid = document.getElementById('markPaid').checked;
+            const specialPassword = document.getElementById('specialPassword').value;
+
+            // Send data to the server
+            fetch(`{% url 'update_advance' %}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: JSON.stringify({ advanceId, newAmount, newDate, markPaid, specialPassword })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(data.message); // Success message
+                        location.reload(); // Reload the page or update the UI dynamically
+                    } else {
+                        showToast(`Error: ${data.message}`, 'danger');// Error message
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('An error occurred. Please try again', 'danger');
+                });
+        });
+
         function giveAdvance() {
             const advanceModal = new bootstrap.Modal(document.getElementById('advanceModal'));
             advanceModal.show();
@@ -269,7 +420,7 @@
             const camount = document.getElementById('confirmamt').value;
             const password = document.getElementById('advancePassword').value;
 
-            if (amount && password && camount==amount) {
+            if (amount && password && camount == amount) {
                 fetch(`{% url 'advance_payment' employee.id %}`, {
                     method: 'POST',
                     headers: {
@@ -280,7 +431,14 @@
                 })
                     .then(response => response.json())
                     .then(data => {
+                        if(data.message)
+                    {
                         showToast(data.message);
+                    }
+                    else{
+                        showToast("Invalid admin password.",'danger');
+                    }
+                        
                         document.getElementById('advanceForm').reset();
                         const advanceModal = bootstrap.Modal.getInstance(document.getElementById('advanceModal'));
                         advanceModal.hide();

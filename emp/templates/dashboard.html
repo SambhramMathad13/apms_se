@@ -93,11 +93,6 @@
                 <h4 class="text-center mb-5">APMS</h4>
 
                 <!-- Sidebar Links -->
-                <!-- <a class="btn gradient-custom-2 w-100 my-2">Dashboard</a>
-                <a href="{% url 'add_employee' %}" class="btn btn-light w-100 my-2">Add Employee</a>
-                <a href="{% url 'scan' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
-                <a href="{% url 'all_employees' %}" class="btn btn-light w-100 my-2">View All Employees</a>
-                <a href="{% url 'admin_logout' %}" class="btn btn-light w-100 my-2">Logout</a> -->
                 {% if user.is_superuser %}
                 <a class="btn gradient-custom-2 w-100 my-2">Dashboard</a>
                 <a href="{% url 'add_employee' %}" class="btn btn-light w-100 my-2">Add Employee</a>
@@ -115,11 +110,11 @@
             <div class="col-md-9 col-lg-10" style="background-color:  #303030;">
                 <div class="container mt-4">
                     <div class="gradient-custom-2 rounded-2">
-                        <h2 class="text-center mb-3 pt-2 text-white">Employee Attendance Dashboard</h2>
+                        <h2 class="text-center mb-3 pt-2 text-white">Employee Attendance Dashboard ({{ employees_in_office }}/{{ total_employees }})</h2>
 
                         <!-- Search Bar -->
                         <form method="GET" action="" class="d-flex mb-4 p-3">
-                            <input type="text" name="search" class="form-control me-2" placeholder="Search by name"
+                            <input type="text" name="search" class="form-control me-2" placeholder="Search by ID or name"
                                 value="{{ request.GET.search }}" required>
                             <button type="submit" class="btn btn-light">Search</button>
                         </form>

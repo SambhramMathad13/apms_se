@@ -123,8 +123,11 @@ class Attendance(models.Model):
     def __str__(self):
         return f'{self.employee.first_name} {self.employee.last_name} - {self.date}'
 
-# Advance Payments
 class AdvancePayment(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(default=now)
+    is_paid = models.BooleanField(default=False)  # New boolean field
+
+    def __str__(self):
+        return f"{self.employee} - {self.amount} - {'Paid' if self.is_paid else 'Unpaid'}"
