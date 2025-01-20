@@ -301,11 +301,12 @@ def scan_view(request):
                     attendance.morning_check_out_time = current_time
                     attendance.save()
                     messages.success(request, f"Evening check-out recorded successfully for {employee.first_name}.")
+                elif not attendance.morning_check_in_time and attendance.lunch_check_in_time:
+                    messages.success(request, f"Evening check-out recorded successfully for {employee.first_name}. HALF DAY...")
                 elif not attendance.morning_check_in_time:
                     messages.warning(request, f"Employee {employee.first_name} is too late to check in. Please confirm with admin.")
                 else:
                     messages.error(request, f"Evening check-out already recorded for {employee.first_name}.")
-                return redirect("dashboard")
 
             # Invalid Check-in/out Time
             else:
