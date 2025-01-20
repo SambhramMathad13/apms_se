@@ -11,6 +11,63 @@ from datetime import date
 from django.conf import settings
 SPECIAL_PASSWORD = "admin"
 from django.core.paginator import Paginator
+from django.http import HttpResponse
+import csv
+
+
+
+
+
+def download_attendance(request):
+    if request.method == "POST":
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
+        if not start_date or not end_date:
+            return render(request, "download_attendance.html", {"error": "Please select both start and end dates."})
+
+        try:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d")
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            return render(request, "download_attendance.html", {"error": "Invalid date format."})
+
+        attendance_records = Attendance.objects.filter(date__range=[start_date, end_date]).select_related("employee")
+
+        if not attendance_records.exists():
+            return render(
+                request,
+                "download_attendance.html",
+                {"error": "No attendance records found for the selected date range."},
+            )
+
+        # Generate CSV file
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="attendance_{start_date.strftime("%Y%m%d")}to{end_date.strftime("%Y%m%d")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(["Employee ID", "Employee Name", "Date", "Morning Check-In", "Lunch Check-In", "Lunch Check-Out", "Evening Check-Out"])
+
+        for record in attendance_records.iterator():
+            writer.writerow([
+                record.employee.id,
+                f"{record.employee.first_name} {record.employee.last_name}",
+                record.date.strftime("%Y-%m-%d"),
+                record.morning_check_in_time.strftime("%H:%M:%S") if record.morning_check_in_time else "N/A",
+                record.lunch_check_in_time.strftime("%H:%M:%S") if record.lunch_check_in_time else "N/A",
+                record.lunch_check_out_time.strftime("%H:%M:%S") if record.lunch_check_out_time else "N/A",
+                record.morning_check_out_time.strftime("%H:%M:%S") if record.morning_check_out_time else "N/A",
+            ])
+
+        return response
+
+    return render(request, "download_attendance.html")
+
+
+
+
+
+
 
 
 # Authentication Views
@@ -208,9 +265,12 @@ def scan_view(request):
 
             # Late Check-in
             elif time_in_range(time(11, 0), time(12, 29), current_time_only):
-                attendance.morning_check_in_time = current_time
-                attendance.save()
-                messages.warning(request, f"Late check-in for {employee.first_name}. Please confirm with admin.")
+                if not attendance.morning_check_in_time:
+                    attendance.morning_check_in_time = current_time
+                    attendance.save()
+                    messages.warning(request, f"Late check-in for {employee.first_name}. Please confirm with admin.")
+                else:
+                    messages.error(request, f"Morning check-in already recorded for {employee.first_name}.")
 
             # Lunch Check-in and Check-out
             elif time_in_range(time(12, 30), time(18, 0), current_time_only):
@@ -258,9 +318,12 @@ def scan_view(request):
 # Attendance Viewing View
 def view_employee_attendance(request, employee_id):
     if request.user.is_authenticated and request.user.is_superuser:
-    
         employee = get_object_or_404(Employee, id=employee_id)
-        return render(request, 'view_employee_attendance.html', {'employee': employee})
+        advances = AdvancePayment.objects.filter(
+            employee=employee,
+            is_paid=False
+        )
+        return render(request, 'view_employee_attendance.html', {'employee': employee, 'advances': advances})
     else:
         return redirect("admin_login")
 
@@ -304,15 +367,6 @@ def calculate_salary(request, employee_id):
             )
             total_advance = advances.aggregate(Sum('amount'))['amount__sum'] or 0
 
-            # Prepare advance payment details
-            advance_details = [
-                {
-                    'id': advance.id,
-                    'date': advance.date.strftime('%Y-%m-%d'),
-                    'amount': advance.amount,
-                } for advance in advances
-            ]
-
             # Calculate the total salary
             total_salary = (valid_workdays * (employee.base_salary // 30)) - total_advance
 
@@ -332,7 +386,6 @@ def calculate_salary(request, employee_id):
                 'valid_workdays': valid_workdays,
                 'total_salary': total_salary,
                 'advance_paid': total_advance,
-                'advances': advance_details,
             })
         else:
             return JsonResponse({'error': 'Invalid request method.'}, status=405)
@@ -409,6 +462,4 @@ def update_advance(request):
         else:
             return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)
     else:
-        return redirect("admin_login") 
-
-
+        return redirect("admin_login")

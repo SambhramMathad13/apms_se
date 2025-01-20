@@ -29,4 +29,8 @@ urlpatterns = [
     # Advance Payment
     path('payment/<int:employee_id>/', views.advance_payment, name='advance_payment'),
     path('update-advance/', views.update_advance, name='update_advance'),
+
+
+    # Download
+    path("download-attendance/", views.download_attendance, name="download_attendance"),
 ]

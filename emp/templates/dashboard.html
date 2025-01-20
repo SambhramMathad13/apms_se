@@ -69,7 +69,7 @@
 
         @media (max-width: 769px) {
             .side-nav {
-                height: 50vh;
+                height: 54vh;
                 background-color: #fff;
                 border-right: 1px solid #ddd;
                 padding-top: 20px;
@@ -98,6 +98,7 @@
                 <a href="{% url 'add_employee' %}" class="btn btn-light w-100 my-2">Add Employee</a>
                 <a href="{% url 'scan' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
                 <a href="{% url 'all_employees' %}" class="btn btn-light w-100 my-2">View All Employees</a>
+                <a href="{% url 'download_attendance' %}" class="btn btn-light w-100 my-2">Download Attendance</a>
                 {% else %}
                 <a class="btn gradient-custom-2 w-100 my-2">Dashboard</a>
                 <a href="{% url 'scan' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
@@ -121,53 +122,55 @@
                     </div>
 
                     <!-- Attendance Table -->
-                    <table class="table table-striped bg-white rounded-2">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Morning Check-in</th>
-                                <th>Lunch Check-in</th>
-                                <th>Lunch Check-out</th>
-                                <th>Evening Check-out</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if attendance_records %}
-                            {% for record in attendance_records %}
-                            <tr>
-                                <td>{{ record.employee.id }}</td>
-                                <td>{{ record.employee }}</td>
-                                <td>
-                                    <span>{{ record.morning_check_in_time|date:"P" }}</span>
-                                    <span
-                                        class="status-box {% if record.morning_check_in_time is not None %}status-green{% else %}status-red{% endif %}"></span>
-                                </td>
-                                <td>
-                                    <span>{{ record.lunch_check_in_time|date:"P" }}</span>
-                                    <span
-                                        class="status-box {% if record.lunch_check_in_time is not None %}status-green{% else %}status-red{% endif %}"></span>
-                                </td>
-                                <td>
-                                    <span>{{ record.lunch_check_out_time|date:"P" }}</span>
-                                    <span
-                                        class="status-box {% if record.lunch_check_out_time is not None %}status-green{% else %}status-red{% endif %}"></span>
-                                </td>
-                                <td>
-                                    <span>{{ record.morning_check_out_time|date:"P" }}</span>
-                                    <span
-                                        class="status-box {% if record.morning_check_out_time is not None %}status-green{% else %}status-red{% endif %}"></span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                            {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center">No attendance records found.</td>
-                            </tr>
-                            {% endif %}
-                        </tbody>
-                        
-                    </table>
+                    <div class="table-responsive bg-light rounded shadow-sm p-3 mb-4">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Morning Check-in</th>
+                                    <th>Lunch Check-in</th>
+                                    <th>Lunch Check-out</th>
+                                    <th>Evening Check-out</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if attendance_records %}
+                                {% for record in attendance_records %}
+                                <tr>
+                                    <td>{{ record.employee.id }}</td>
+                                    <td>{{ record.employee }}</td>
+                                    <td>
+                                        <span>{{ record.morning_check_in_time|date:"P" }}</span>
+                                        <span
+                                            class="status-box {% if record.morning_check_in_time is not None %}status-green{% else %}status-red{% endif %}"></span>
+                                    </td>
+                                    <td>
+                                        <span>{{ record.lunch_check_in_time|date:"P" }}</span>
+                                        <span
+                                            class="status-box {% if record.lunch_check_in_time is not None %}status-green{% else %}status-red{% endif %}"></span>
+                                    </td>
+                                    <td>
+                                        <span>{{ record.lunch_check_out_time|date:"P" }}</span>
+                                        <span
+                                            class="status-box {% if record.lunch_check_out_time is not None %}status-green{% else %}status-red{% endif %}"></span>
+                                    </td>
+                                    <td>
+                                        <span>{{ record.morning_check_out_time|date:"P" }}</span>
+                                        <span
+                                            class="status-box {% if record.morning_check_out_time is not None %}status-green{% else %}status-red{% endif %}"></span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No attendance records found.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                            
+                        </table>
+                        </div>
 
                     <nav aria-label="Page navigation">
                         <ul class="pagination justify-content-center">

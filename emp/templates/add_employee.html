@@ -32,7 +32,7 @@
 
         @media (max-width: 769px) {
             .side-nav {
-                height: 48vh;
+                height: 54vh;
                 background-color: #fff;
                 border-right: 1px solid #ddd;
                 padding-top: 20px;
@@ -60,6 +60,7 @@
                 <a  class="btn gradient-custom-2 w-100 my-2">Add Employee</a>
                 <a href="{% url 'scan' %}" class="btn btn-light w-100 my-2">Record Attendance</a>
                 <a href="{% url 'all_employees' %}" class="btn btn-light w-100 my-2">View All Employees</a>
+                <a href="{% url 'download_attendance' %}" class="btn btn-light w-100 my-2">Download Attendance</a>
                 <a href="{% url 'admin_logout' %}" class="btn btn-light w-100 my-2">Logout</a>
             </div>
 

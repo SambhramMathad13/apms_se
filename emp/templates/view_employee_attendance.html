@@ -120,36 +120,49 @@
                                     </div>
                                 </form>
 
+                                {% if advances.exists %}
+                                <div class="mt-2">
+                                    <h3 class="text-center text-dark">Advance Payments</h3>
+                                    <table class="table table-striped mt-4 bg-light">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="advanceTableBody">
+                                            {% for advance in advances %}
+                                            <tr>
+                                                <td>{{ advance.date }}</td>
+                                                <td>{{ advance.amount }}</td>
+                                                <td>
+                                                    <!-- Edit Button -->
+                                                    <button class="btn btn-sm btn-warning"
+                                                        onclick="editAdvance('{{ advance.id }}', '{{ advance.date }}', '{{ advance.amount }}')">
+                                                        Edit
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <p class="text-center text-muted mt-3">No unpaid advances found for this employee.</p>
+                                {% endif %}
+
+
                                 <div class="mt-4 card bg-light p-3" id="result" style="display:none;">
                                     <h4 class="card-title text-center">Salary Calculation Result</h4>
                                     <p><strong>Valid Workdays:</strong> <span id="validWorkdays"></span></p>
                                     <p><strong>Total Salary:</strong> ₹<span id="totalSalary"></span></p>
                                     <p><strong>Advance Paid:</strong> ₹<span id="advancePaid"></span></p>
-
-
-                                    <div class="mt-2">
-                                        <h3 class="text-center text-dark">Advance Payments</h3>
-                                        <table class="table table-striped mt-4 bg-light">
-                                            <thead class="table-dark">
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>Amount</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="advanceTableBody">
-                                                <!-- Advance records will be dynamically added here -->
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-
-
                                 </div>
                             </div>
                         </div>
 
-                        <div class="mt-5">
+                        <div id="attendanceTableDiv" class="mt-5" style="display: none;">
                             <table class="table mt-4">
                                 <thead class="table-dark">
                                     <tr>
@@ -290,69 +303,46 @@
                 })
                     .then(response => response.json())
                     .then(data => {
+                        // Display salary results
                         document.getElementById('result').style.display = 'block';
                         document.getElementById('validWorkdays').innerText = data.valid_workdays;
                         document.getElementById('totalSalary').innerText = data.total_salary;
                         document.getElementById('advancePaid').innerText = data.advance_paid;
 
-
-                        const attendanceTableBody = document.getElementById('attendanceTableBody');
-                        attendanceTableBody.innerHTML = '';
-                        data.attendance_records.forEach(record => {
-                            const row = `
-                            <tr>
-                                <td>${record.date}</td>
-                                <td>${record.morning_check_in}</td>
-                                <td>${record.lunch_check_in}</td>
-                                <td>${record.lunch_check_out}</td>
-                                <td>${record.evening_check_out}</td>
-                            </tr>
-                        `;
-                            attendanceTableBody.insertAdjacentHTML('beforeend', row);
-                        });
-
-                        // Populate the advance table
-                        const advanceTableBody = document.getElementById('advanceTableBody');
-                        advanceTableBody.innerHTML = '';
-                        data.advances.forEach(advance => {
-                            const row = `
-<tr> 
-    <td>${advance.date}</td>
-    <td>₹${advance.amount}</td>
-    <td>
-        <button class="btn btn-sm btn-warning" 
-                onclick="editAdvance(${advance.id}, '${advance.date}', ${advance.amount})">
-            Edit
-        </button>
-    </td>
-</tr>
-                        `;
-                            advanceTableBody.insertAdjacentHTML('beforeend', row);
-                        });
-
-
+                        // Populate and show the attendance table
                         const tableBody = document.getElementById('attendanceTableBody');
-                        tableBody.innerHTML = '';
-                        data.attendance_records.forEach(record => {
-                            let rowClass = '';
-                            if (record.morning_check_in != "Not Checked In" && record.evening_check_out != "Not Checked Out") {
-                                rowClass = 'table-success';
-                            } else if (record.morning_check_in == "Not Checked In" && record.lunch_check_in != "Not Checked In" && record.evening_check_out != "Not Checked Out") {
-                                rowClass = 'table-warning';
-                            } else {
-                                rowClass = 'table-danger';
-                            }
-                            const row = `
-                            <tr class="${rowClass}">
-                                <td>${record.date}</td>
-                                <td>${record.morning_check_in || 'Not Checked In'}</td>
-                                <td>${record.lunch_check_in || 'Not Checked In'}</td>
-                                <td>${record.lunch_check_out || 'Not Checked Out'}</td>
-                                <td>${record.evening_check_out || 'Not Checked Out'}</td>
-                            </tr>
-                        `;
-                            tableBody.insertAdjacentHTML('beforeend', row);
-                        });
+                        tableBody.innerHTML = ''; // Clear any existing rows
+
+                        if (data.attendance_records.length > 0) {
+                            // Show the table div
+                            document.getElementById('attendanceTableDiv').style.display = 'block';
+
+                            // Add attendance records
+                            data.attendance_records.forEach(record => {
+                                let rowClass = '';
+                                if (record.morning_check_in != "Not Checked In" && record.evening_check_out != "Not Checked Out") {
+                                    rowClass = 'table-success';
+                                } else if (record.morning_check_in == "Not Checked In" && record.lunch_check_in != "Not Checked In" && record.evening_check_out != "Not Checked Out") {
+                                    rowClass = 'table-warning';
+                                } else {
+                                    rowClass = 'table-danger';
+                                }
+                                const row = `
+                        <tr class="${rowClass}">
+                            <td>${record.date}</td>
+                            <td>${record.morning_check_in || 'Not Checked In'}</td>
+                            <td>${record.lunch_check_in || 'Not Checked In'}</td>
+                            <td>${record.lunch_check_out || 'Not Checked Out'}</td>
+                            <td>${record.evening_check_out || 'Not Checked Out'}</td>
+                        </tr>
+                    `;
+                                tableBody.insertAdjacentHTML('beforeend', row);
+                            });
+                        } else {
+                            // Hide the table div if no attendance records are found
+                            document.getElementById('attendanceTableDiv').style.display = 'none';
+                            showToast('No attendance records found for the selected date range.', 'warning');
+                        }
                     })
                     .catch(error => {
                         console.error('Error:', error);
@@ -362,6 +352,7 @@
                 showToast('Please select both start and end dates.', 'warning');
             }
         }
+
 
 
         // Function to handle editing advance
@@ -431,14 +422,13 @@
                 })
                     .then(response => response.json())
                     .then(data => {
-                        if(data.message)
-                    {
-                        showToast(data.message);
-                    }
-                    else{
-                        showToast("Invalid admin password.",'danger');
-                    }
-                        
+                        if (data.message) {
+                            showToast(data.message);
+                        }
+                        else {
+                            showToast("Invalid admin password.", 'danger');
+                        }
+
                         document.getElementById('advanceForm').reset();
                         const advanceModal = bootstrap.Modal.getInstance(document.getElementById('advanceModal'));
                         advanceModal.hide();
