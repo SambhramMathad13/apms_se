@@ -13,11 +13,10 @@ class AttendanceAdmin(admin.ModelAdmin):
 # Register Employee model
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name','section','gender', 'mobile','address', 'base_salary', 'qr_code')
+    list_display = ('id','first_name', 'last_name','section','gender', 'mobile','address', 'base_salary')
     search_fields = ('first_name', 'last_name', 'mobile')
     list_filter = ('gender',)
     ordering = ('first_name',)
-    readonly_fields = ('qr_code',)  # QR code is automatically generated and shouldn't be editable
 
 # Register AdvancePayment model
 @admin.register(AdvancePayment)

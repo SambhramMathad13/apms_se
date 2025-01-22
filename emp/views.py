@@ -109,18 +109,14 @@ def dashboard(request):
 
     # Base attendance queryset for today's records
     attendance = Attendance.objects.filter(
-        Q(
-            morning_check_in_time__isnull=True,
-            lunch_check_in_time__isnull=False
-        ) |
-        Q(
-            morning_check_in_time__isnull=False
-        ),
+        Q(morning_check_in_time__isnull=False) |
+        Q(lunch_check_in_time__isnull=False),
         date=today
     ).select_related('employee').order_by('employee__id')
     total_employees = Employee.objects.count()
     employees_in_office=attendance.count()
     # Filter attendance records based on the search query
+
     if search_query:
         attendance = attendance.filter(
             Q(employee__first_name__icontains=search_query) |
@@ -136,28 +132,36 @@ def dashboard(request):
             "employees_in_office": employees_in_office,})
 
 
-
-# Cache the entire page for 15 minutes (900 seconds)
-
 def all_employees(request):
-    if request.user.is_authenticated and request.user.is_superuser:
-        search_query = request.GET.get('search', '')  # Get the search query from the request
-
-        if search_query:
-            employees = Employee.objects.filter(
-                Q(first_name__icontains=search_query) | Q(id__icontains=search_query)
-            )
-        else:
-            employees = Employee.objects.all().order_by('id')
-
-        # Implement Pagination
-        paginator = Paginator(employees, 8)  # Show 8 employees per page
-        page_number = request.GET.get('page')  # Get the page number from the request
-        page_obj = paginator.get_page(page_number)  # Get the page object for the current page
-
-        return render(request, 'allemp.html', {'page_obj': page_obj, 'search_query': search_query})
-    else:
+    if not request.user.is_authenticated or not request.user.is_superuser:
         return redirect("admin_login")
+
+    # Get search query and page number from the request
+    search_query = request.GET.get('search', '').strip()
+    page_number = request.GET.get('page', 1)
+
+    # Base queryset for employees
+    employees = Employee.objects.all().order_by('id')
+
+    # Filter employees based on search query
+    if search_query:
+        employees = employees.filter(
+            Q(first_name__icontains=search_query) |
+            Q(id__icontains=search_query)
+        )
+
+    # Implement pagination
+    paginator = Paginator(employees, 8)  # Show 8 employees per page
+    page_obj = paginator.get_page(page_number)
+
+    # Render the response
+    return render(request, 'allemp.html', {
+        'page_obj': page_obj,
+        'search_query': search_query
+    })
+
+
+
 # Employee Management Views
 def add_employee(request):
 
@@ -190,32 +194,35 @@ def add_employee(request):
 
 
 def edit_employee(request, employee_id):
-    if request.user.is_authenticated and request.user.is_superuser:
-
-        employee = get_object_or_404(Employee, id=employee_id)
-
-        if request.method == "POST":
-            special_password = request.POST.get("special_password", "")
-            if special_password == SPECIAL_PASSWORD:
-                # Update employee details
-                employee.first_name = request.POST.get("first_name")
-                employee.last_name = request.POST.get("last_name")
-                employee.section = request.POST.get("section")
-                employee.address = request.POST.get("address")
-                employee.gender = request.POST.get("gender")
-                employee.mobile = request.POST.get("mobile")
-                employee.base_salary = request.POST.get("base_salary")
-                employee.save()
-                messages.success(request, "Employee details updated successfully.")
-                return redirect("all_employees")
-            else:
-                messages.error(request, "Incorrect special password. Changes were not saved.")
-                return redirect("edit_employee", employee_id=employee_id)
-
-        return render(request, "edit_employee.html", {"employee": employee})
-    else:
+    if not request.user.is_authenticated or not request.user.is_superuser:
         return redirect("admin_login")
 
+    # Fetch the employee or return 404 if not found
+    employee = get_object_or_404(Employee, id=employee_id)
+
+    if request.method == "POST":
+        special_password = request.POST.get("special_password", "").strip()
+
+        # Validate the special password
+        if special_password == SPECIAL_PASSWORD:
+            # Update employee details with data from the POST request
+            employee.first_name = request.POST.get("first_name", employee.first_name)
+            employee.last_name = request.POST.get("last_name", employee.last_name)
+            employee.section = request.POST.get("section", employee.section)
+            employee.address = request.POST.get("address", employee.address)
+            employee.gender = request.POST.get("gender", employee.gender)
+            employee.mobile = request.POST.get("mobile", employee.mobile)
+            employee.base_salary = request.POST.get("base_salary", employee.base_salary)
+            employee.save()
+
+            messages.success(request, "Employee details updated successfully.")
+            return redirect("all_employees")
+        else:
+            messages.error(request, "Incorrect special password. Changes were not saved.")
+            return redirect("edit_employee", employee_id=employee_id)
+
+    # Render the edit form
+    return render(request, "edit_employee.html", {"employee": employee})
 
 def delete_employee(request, employee_id):
     if request.user.is_authenticated and request.user.is_superuser:
