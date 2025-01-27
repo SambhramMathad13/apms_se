@@ -5,7 +5,7 @@ from .models import Employee, Attendance, AdvancePayment
 # Register Attendance model
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'date', 'morning_check_in_time', 'morning_check_out_time', 'lunch_check_in_time', 'lunch_check_out_time')
+    list_display = ('id','employee', 'date', 'morning_check_in_time', 'morning_check_out_time', 'lunch_check_in_time', 'lunch_check_out_time')
     search_fields = ('employee__first_name', 'employee__last_name')
     list_filter = ('date',)
     ordering = ('-date',)
@@ -21,7 +21,7 @@ class EmployeeAdmin(admin.ModelAdmin):
 # Register AdvancePayment model
 @admin.register(AdvancePayment)
 class AdvancePaymentAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'amount', 'date','is_paid')
+    list_display = ('employee', 'amount', 'date','type')
     search_fields = ('employee__first_name', 'employee__last_name')
     list_filter = ('date',)
-    ordering = ('-date',)
+    ordering = ('-date',) 

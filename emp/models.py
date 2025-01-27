@@ -53,10 +53,15 @@ class Attendance(models.Model):
         return f'{self.employee.first_name} {self.employee.last_name} - {self.date}'
 
 class AdvancePayment(models.Model):
+    TYPE_CHOICES = [
+        ('taken', 'Taken'),
+        ('paid', 'Paid'),
+    ]
+
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(default=now)
-    is_paid = models.BooleanField(default=False)  # New boolean field
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES)  # New type field
 
     def __str__(self):
-        return f"{self.employee} - {self.amount} - {'Paid' if self.is_paid else 'Unpaid'}"
+        return f"{self.employee} - {self.amount} - {self.type}"

@@ -13,6 +13,7 @@ SPECIAL_PASSWORD = "admin"
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 import csv
+from django.core.cache import cache
 
 
 
@@ -103,20 +104,40 @@ def dashboard(request):
 
     # Get today's date
     today = date.today()
-    
+
+    # Define a unique cache key for today's attendance data
+    cache_key = "dashboard_attendance"
+
+    # Attempt to get cached data
+    cached_data = cache.get(cache_key)
+
+    if cached_data:
+        # Extract cached values
+        attendance = cached_data['attendance']
+        total_employees = cached_data['total_employees']
+        employees_in_office = cached_data['employees_in_office']
+    else:
+        # Base attendance queryset for today's records
+        attendance = Attendance.objects.filter(
+            Q(morning_check_in_time__isnull=False) |
+            Q(lunch_check_in_time__isnull=False),
+            date=today
+        ).select_related('employee').order_by('employee__id')
+        # Count total employees and employees in office
+        total_employees = Employee.objects.count()
+        employees_in_office = attendance.count()
+
+        # Cache the data for future use
+        cache.set(cache_key, {
+            'attendance': attendance,
+            'total_employees': total_employees,
+            'employees_in_office': employees_in_office,
+        }, timeout=900)  # Cache for 1 hour (3600 seconds)
+
     # Get the search query from the request
     search_query = request.GET.get("search", "").strip()
 
-    # Base attendance queryset for today's records
-    attendance = Attendance.objects.filter(
-        Q(morning_check_in_time__isnull=False) |
-        Q(lunch_check_in_time__isnull=False),
-        date=today
-    ).select_related('employee').order_by('employee__id')
-    total_employees = Employee.objects.count()
-    employees_in_office=attendance.count()
     # Filter attendance records based on the search query
-
     if search_query:
         attendance = attendance.filter(
             Q(employee__first_name__icontains=search_query) |
@@ -128,8 +149,12 @@ def dashboard(request):
     paginator = Paginator(attendance, 10)  # Show 10 records per page
     attendance_records = paginator.get_page(page_number)
 
-    return render(request, "dashboard.html", {"attendance_records": attendance_records, "search_query": search_query,            "total_employees": total_employees,
-            "employees_in_office": employees_in_office,})
+    return render(request, "dashboard.html", {
+        "attendance_records": attendance_records,
+        "search_query": search_query,
+        "total_employees": total_employees,
+        "employees_in_office": employees_in_office,
+    })
 
 
 def all_employees(request):
@@ -140,11 +165,16 @@ def all_employees(request):
     search_query = request.GET.get('search', '').strip()
     page_number = request.GET.get('page', 1)
 
-    # Base queryset for employees
-    employees = Employee.objects.all().order_by('id')
+    # Check if employees are cached
+    employees = cache.get('all_employees')
 
-    # Filter employees based on search query
+    if employees is None:
+        # Fetch from the database and cache it
+        employees = Employee.objects.all().order_by('id')
+        cache.set('all_employees', employees,60*30)
+
     if search_query:
+        # Filter employees based on search query
         employees = employees.filter(
             Q(first_name__icontains=search_query) |
             Q(id__icontains=search_query)
@@ -159,7 +189,6 @@ def all_employees(request):
         'page_obj': page_obj,
         'search_query': search_query
     })
-
 
 
 # Employee Management Views
@@ -184,8 +213,10 @@ def add_employee(request):
                 mobile=mobile,
                 base_salary=base_salary,
             )
+            # Clear the cache for all employees
+            cache.delete("all_employees")
             messages.success(request, "Employee added successfully.")
-            return redirect("dashboard")
+            return redirect("all_employees")
 
         return render(request, "add_employee.html")
     else:
@@ -214,7 +245,8 @@ def edit_employee(request, employee_id):
             employee.mobile = request.POST.get("mobile", employee.mobile)
             employee.base_salary = request.POST.get("base_salary", employee.base_salary)
             employee.save()
-
+            # Clear the cache for all employees
+            cache.delete("all_employees")
             messages.success(request, "Employee details updated successfully.")
             return redirect("all_employees")
         else:
@@ -231,6 +263,8 @@ def delete_employee(request, employee_id):
             if special_password == SPECIAL_PASSWORD:
                 employee = get_object_or_404(Employee, id=employee_id)
                 employee.delete()
+                # Clear the cache for all employees
+                cache.delete("all_employees")
                 messages.success(request, "Employee deleted successfully.")
             else:
                 messages.error(request, "Incorrect password. Employee not deleted.")
@@ -260,6 +294,8 @@ def scan_view(request):
             current_time_only = current_time.time()
             # print(current_time_only)
 
+            #clear cache
+            cache.delete("dashboard_attendance")
 
             # Morning Check-in
             if time_in_range(time(6, 0), time(10, 59), current_time_only):
@@ -303,12 +339,14 @@ def scan_view(request):
                     messages.error(request, f"Lunch check-in and check-out already recorded for {employee.first_name}.")
 
             # Evening Check-out
-            elif time_in_range(time(18, 1), time(22, 0), current_time_only):
+            elif time_in_range(time(18, 1), time(23, 55), current_time_only):
                 if attendance.morning_check_in_time and not attendance.morning_check_out_time:
                     attendance.morning_check_out_time = current_time
                     attendance.save()
                     messages.success(request, f"Evening check-out recorded successfully for {employee.first_name}.")
                 elif not attendance.morning_check_in_time and attendance.lunch_check_in_time:
+                    attendance.morning_check_out_time = current_time
+                    attendance.save()
                     messages.success(request, f"Evening check-out recorded successfully for {employee.first_name}. HALF DAY...")
                 elif not attendance.morning_check_in_time:
                     messages.warning(request, f"Employee {employee.first_name} is too late to check in. Please confirm with admin.")
@@ -323,17 +361,114 @@ def scan_view(request):
     return render(request, 'scan.html')
 
 
+
 # Attendance Viewing View
 def view_employee_attendance(request, employee_id):
     if request.user.is_authenticated and request.user.is_superuser:
+        # Fetch the employee
         employee = get_object_or_404(Employee, id=employee_id)
-        advances = AdvancePayment.objects.filter(
-            employee=employee,
-            is_paid=False
-        )
-        return render(request, 'view_employee_attendance.html', {'employee': employee, 'advances': advances})
+
+        # Get all advances for the employee, ordered by date descending
+        advances = AdvancePayment.objects.filter(employee=employee).order_by('-date')
+
+        # Calculate total amounts for 'taken' and 'paid'
+        total_taken = advances.filter(type='taken').aggregate(total=Sum('amount'))['total'] or 0
+        total_paid = advances.filter(type='paid').aggregate(total=Sum('amount'))['total'] or 0
+
+        # Calculate net
+        net = total_taken - total_paid
+
+        # Check if advances exceed 5
+        merge = advances.count() > 5
+
+        # Pass data to the template
+        return render(request, 'view_employee_attendance.html', {
+            'employee': employee,
+            'advances': advances,
+            'net': net,  # Send net to the template
+            'merge': merge,  # Merge flag
+        })
     else:
         return redirect("admin_login")
+
+
+def merge_advances(request, employee_id):
+    if request.user.is_authenticated and request.user.is_superuser:
+        if request.method == "POST":
+            # Fetch the employee
+            employee = get_object_or_404(Employee, id=employee_id)
+
+            # Get the net amount from the POST data
+            net_amount = float(request.POST.get("net", 0))
+
+            # Determine the type based on net_amount
+            net_type = 'taken' if net_amount > 0 else 'paid'
+
+            # Get all the advances to merge
+            advances_to_merge = AdvancePayment.objects.filter(employee=employee)
+
+            # Delete the old advances
+            advances_to_merge.delete()
+
+            current_time = datetime.now()
+
+            # Create a new compressed advance entry
+            AdvancePayment.objects.create(
+                employee=employee,
+                amount=abs(net_amount),
+                date=current_time.date(),
+                type=net_type
+            )
+
+
+            messages.success(request, "Advances successfully merged.")
+            return redirect('view_employee_attendance', employee_id=employee.id)
+    else:
+        return redirect("admin_login")
+
+
+
+# Advance Payment View
+def advance_payment(request, employee_id):
+    # Check if the user is authenticated and has superuser privileges
+    if request.user.is_authenticated and request.user.is_superuser:
+        if request.method == "POST":
+            # Extract form data
+            amount = request.POST.get('amount', 0)
+            password = request.POST.get('password', '')
+            advance_type = request.POST.get('type', 'taken')
+
+            # Check if the provided password matches the special password
+            special_password = getattr(settings, 'SPECIAL_PASSWORD', None)
+            if not special_password or password != special_password:
+                messages.error(request, 'Invalid password...')
+                return redirect('view_employee_attendance', employee_id=employee_id)
+
+            # Validate the amount
+            try:
+                amount = float(amount)
+                if amount <= 0:
+                    messages.error(request, 'Invalid amount. Please enter a positive number.')
+                    return redirect('view_employee_attendance', employee_id=employee_id)
+            except ValueError:
+                messages.error(request, 'Invalid amount format. Please enter a valid number.')
+                return redirect('view_employee_attendance', employee_id=employee_id)
+
+            # Create the advance payment record
+            employee = get_object_or_404(Employee, id=employee_id)
+            AdvancePayment.objects.create(employee=employee, amount=amount, type=advance_type)
+
+            # Success message
+            messages.success(request, 'Advance payment recorded successfully.')
+            return redirect('view_employee_attendance', employee_id=employee_id)
+
+        # If the request method is not POST, redirect back with an error message
+        messages.error(request, 'Invalid request method.')
+        return redirect('view_employee_attendance', employee_id=employee_id)
+
+    # Redirect to admin login if the user is not authenticated
+    messages.error(request, 'You must be logged in as an admin to perform this action.')
+    return redirect("admin_login")
 
 
 def calculate_salary(request, employee_id):
@@ -367,16 +502,8 @@ def calculate_salary(request, employee_id):
                 morning_check_out_time__isnull=False
             ).count()
 
-            # Filter advance payments
-            advances = AdvancePayment.objects.filter(
-                employee=employee,
-                date__range=(start_date, end_date),
-                is_paid=False
-            )
-            total_advance = advances.aggregate(Sum('amount'))['amount__sum'] or 0
-
             # Calculate the total salary
-            total_salary = (valid_workdays * (employee.base_salary // 30)) - total_advance
+            total_salary = (valid_workdays * (employee.base_salary // 30))
 
             # Return attendance records, advance details, and salary
             return JsonResponse({
@@ -392,82 +519,9 @@ def calculate_salary(request, employee_id):
                     for record in attendance_records
                 ],
                 'valid_workdays': valid_workdays,
-                'total_salary': total_salary,
-                'advance_paid': total_advance,
+                'total_salary': total_salary
             })
         else:
             return JsonResponse({'error': 'Invalid request method.'}, status=405)
     else:
         return redirect("admin_login")    
-
-
-# Advance Payment View
-def advance_payment(request, employee_id):
-    # Check if the user is authenticated
-    if request.user.is_authenticated and request.user.is_superuser:
-
-    # Handle POST request
-        if request.method == "POST":
-            try:
-                data = json.loads(request.body)
-                amount = data.get('amount', 0)
-                password = data.get('password', '')
-
-                # Check if the provided password matches the special password
-                special_password = getattr(settings, 'SPECIAL_PASSWORD', None)
-                if not special_password or password != special_password:
-                    return JsonResponse({'error': 'Invalid password'}, status=403)
-
-                # Validate the amount
-                if int(amount) > 0:
-                    employee = get_object_or_404(Employee, id=employee_id)
-                    AdvancePayment.objects.create(employee=employee, amount=amount)
-                    return JsonResponse({'message': 'Advance payment recorded successfully.'})
-                else:
-                    return JsonResponse({'error': 'Invalid amount'}, status=400)
-            except (ValueError, KeyError, json.JSONDecodeError):
-                return JsonResponse({'error': 'Invalid request data'}, status=400)
-
-        # If the request method is not POST, return a 405 error
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-    else:
-        return redirect("admin_login")
-
-
-def update_advance(request):
-    if request.user.is_authenticated and request.user.is_superuser:
-        if request.method == 'POST':
-            try:
-                # Parse the JSON data from the request
-                data = json.loads(request.body)
-                advance_id = data.get('advanceId')
-                new_amount = data.get('newAmount')
-                new_date = data.get('newDate')
-                mark_paid = data.get('markPaid')
-                special_password = data.get('specialPassword')
-
-                # Validate the special password
-                specialpassword = getattr(settings, 'SPECIAL_PASSWORD', None)
-                if not specialpassword or special_password != specialpassword:
-                    return JsonResponse({'error': 'Invalid password'}, status=403)
-
-                try:
-                    advance = AdvancePayment.objects.get(id=advance_id)
-                except AdvancePayment.DoesNotExist:
-                    return JsonResponse({'success': False, 'message': 'Advance not found.'}, status=404)
-
-                # Update the advance record
-                advance.amount = new_amount
-                advance.date = new_date
-                advance.is_paid = mark_paid
-                advance.save()
-
-                return JsonResponse({'success': True, 'message': 'Advance updated successfully.'})
-            except json.JSONDecodeError:
-                return JsonResponse({'success': False, 'message': 'Invalid JSON data.'}, status=400)
-            except Exception as e:
-                return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'}, status=500)
-        else:
-            return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)
-    else:
-        return redirect("admin_login")
